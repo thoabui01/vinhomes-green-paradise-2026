@@ -19,12 +19,13 @@ function generateUUID() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Generate and set session ID if not exists
+    // Dùng sessionStorage thay vì localStorage
+    // Mỗi tab mới / mỗi lần mở lại trang = 1 session mới = 1 dòng mới trong Sheets
     const sessionInput = document.getElementById('sessionId');
-    let sid = localStorage.getItem('vhgp_sessionId');
+    let sid = sessionStorage.getItem('vhgp_sessionId');
     if (!sid) {
         sid = generateUUID();
-        localStorage.setItem('vhgp_sessionId', sid);
+        sessionStorage.setItem('vhgp_sessionId', sid);
     }
     if (sessionInput) {
         sessionInput.value = sid;

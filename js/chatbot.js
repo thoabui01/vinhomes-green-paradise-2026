@@ -1,47 +1,48 @@
 document.addEventListener('DOMContentLoaded', () => {
     // FAILSAFE: Xóa modal cũ nếu còn sót trong cache
-    const phantomModal = document.getElementById('leadModal');
+    var phantomModal = document.getElementById('leadModal');
     if (phantomModal) phantomModal.remove();
 
-    const chatToggler = document.getElementById('chatToggler');
-    const chatWindow = document.getElementById('chatWindow');
-    const closeChat = document.getElementById('closeChat');
-    const chatBody = document.getElementById('chatBody');
-    const chatForm = document.getElementById('chatForm');
-    const chatInput = document.getElementById('chatInput');
+    var chatToggler = document.getElementById('chatToggler');
+    var chatWindow = document.getElementById('chatWindow');
+    var closeChat = document.getElementById('closeChat');
+    var chatBody = document.getElementById('chatBody');
+    var chatForm = document.getElementById('chatForm');
+    var chatInput = document.getElementById('chatInput');
     
     // Webhook URL
-    const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzmfythugMx4lfU4SbWxeDhX4lAisr6vGh5WjCSOdGanrtKF5U5IGhbFrbaKiby_flq/exec';
+    var WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzmfythugMx4lfU4SbWxeDhX4lAisr6vGh5WjCSOdGanrtKF5U5IGhbFrbaKiby_flq/exec';
     
     // Dữ liệu phiên chat
-    let chatHistory = [];       // Mảng lưu lịch sử [{role, message}]
-    let currentLevel = "COLD";
-    let userInterest = "";
-    let messageCount = 0;
-    let chatStartTime = "";     // Thời gian bắt đầu chat
+    var chatHistory = [];
+    var currentLevel = "COLD";
+    var userInterest = "";
+    var messageCount = 0;
+    var chatStartTime = "";
+    var hotAlertSent = false;  // Cờ per-session, reset mỗi lần mở trang
 
-    // Thông tin khách hàng - trích xuất từ nội dung chat
-    let customerName = "";
-    let customerPhone = "";
-    let customerEmail = "";
+    // Thông tin khách hàng - tự trích xuất từ nội dung chat
+    var customerName = "";
+    var customerPhone = "";
+    var customerEmail = "";
 
     // Toggle Chat Window
-    chatToggler.addEventListener('click', () => {
+    chatToggler.addEventListener('click', function() {
         chatWindow.classList.toggle('d-none');
         chatToggler.querySelector('.chat-notification').classList.add('d-none');
     });
 
-    closeChat.addEventListener('click', () => {
+    closeChat.addEventListener('click', function() {
         chatWindow.classList.add('d-none');
     });
 
     // Handle Form Submit
-    chatForm.addEventListener('submit', (e) => {
+    chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
         var msg = chatInput.value.trim();
         if(!msg) return;
 
-        // Ghi nhận thời gian bắt đầu chat (lần chat đầu tiên)
+        // Ghi nhận thời gian bắt đầu chat (lần đầu tiên)
         if (!chatStartTime) {
             chatStartTime = new Date().toLocaleString("vi-VN");
         }
@@ -143,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (text.indexOf('căn hộ') !== -1 || text.indexOf('chung cư') !== -1) {
             userInterest = addInterest(userInterest, "Căn hộ");
         }
-        if (text.indexOf('đất nền') !== -1 || text.indexOf('đất') !== -1) {
+        if (text.indexOf('đất nền') !== -1) {
             userInterest = addInterest(userInterest, "Đất nền");
         }
 
@@ -195,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================
-    // FORMAT LỊCH SỬ CHAT ĐỂ DỄ ĐỌC TRONG GOOGLE SHEETS
+    // FORMAT LỊCH SỬ CHAT
     // ============================================================
     function formatChatHistory() {
         var lines = [];
@@ -211,12 +212,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================================
     function sendDataViaForm() {
         var sessionIdInput = document.getElementById('sessionId');
-        var sessionId = sessionIdInput ? sessionIdInput.value : "Guest_" + Math.floor(Math.random()*10000);
+        var sessionId = sessionIdInput ? sessionIdInput.value : "";
+        
+        if (!sessionId) {
+            sessionId = "S_" + Date.now() + "_" + Math.floor(Math.random()*10000);
+            if (sessionIdInput) sessionIdInput.value = sessionId;
+        }
         
         var triggerAlert = "false";
-        if (currentLevel === "HOT" && !localStorage.getItem('vhgp_hot_alert_sent')) {
+        if (currentLevel === "HOT" && !hotAlertSent) {
             triggerAlert = "true";
-            localStorage.setItem('vhgp_hot_alert_sent', 'true');
+            hotAlertSent = true;
         }
 
         var form = document.createElement('form');
@@ -250,9 +256,11 @@ document.addEventListener('DOMContentLoaded', () => {
         form.submit();
         
         setTimeout(function() {
-            document.body.removeChild(form);
-        }, 2000);
+            if (form.parentNode) {
+                document.body.removeChild(form);
+            }
+        }, 3000);
         
-        console.log("Data synced to Google Sheets. Name:", customerName, "| Phone:", customerPhone, "| Level:", currentLevel);
+        console.log("[Chatbot] Synced \u2192 Name:", customerName || "(ch\u01b0a c\u00f3)", "| Phone:", customerPhone || "(ch\u01b0a c\u00f3)", "| Level:", currentLevel, "| Session:", sessionId);
     }
 });
