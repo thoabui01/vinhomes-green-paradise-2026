@@ -11,31 +11,84 @@ function doPost(e) {
     }
     
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var lastRow = sheet.getLastRow();
     
-    // Dữ liệu theo đúng thứ tự cột: A-I (khớp header Google Sheets)
-    var rowData = [
-      data.timestamp || new Date().toLocaleString("vi-VN"),  // A: Thời gian
-      data.name || "",                                        // B: Tên
-      data.phone || "",                                       // C: SĐT
-      data.email || "",                                       // D: Email
-      data.source || "CHATBOT",                               // E: Nguồn
-      data.sessionId || "",                                    // F: Session ID
-      data.chatHistory || "",                                  // G: Lịch sử Chat
-      data.interest || "",                                     // H: Quan tâm
-      data.level || ""                                         // I: Mức độ
+    // ============================================================
+    // ĐỌC HEADER ROW ĐỂ TÌM ĐÚNG CỘT (không phụ thuộc thứ tự)
+    // ============================================================
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    
+    // Mapping tên cột header → dữ liệu từ chatbot
+    var fieldMapping = {
+      "timestamp": data.timestamp || new Date().toLocaleString("vi-VN"),
+      "name": data.name || "",
+      "phone": data.phone || "",
+      "email": data.email || "",
+      "source": data.source || "CHATBOT",
+      "sessionId": data.sessionId || "",
+      "chatHistory": data.chatHistory || "",
+      "interest": data.interest || "",
+      "level": data.level || ""
+    };
+    
+    // Header keywords → field key (tìm kiếm trong header text)
+    var headerToField = [
+      { keywords: ["thời gian", "thoi gian", "timestamp", "time"], field: "timestamp" },
+      { keywords: ["tên", "ten", "name", "họ tên", "ho ten"], field: "name" },
+      { keywords: ["sđt", "sdt", "số điện thoại", "so dien thoai", "phone", "điện thoại", "dien thoai"], field: "phone" },
+      { keywords: ["email", "e-mail", "mail"], field: "email" },
+      { keywords: ["nguồn", "nguon", "source"], field: "source" },
+      { keywords: ["session", "session id", "sessionid", "phiên"], field: "sessionId" },
+      { keywords: ["lịch sử", "lich su", "chat history", "nội dung", "noi dung", "lịch sử chat"], field: "chatHistory" },
+      { keywords: ["quan tâm", "quan tam", "interest", "sản phẩm", "san pham", "thể loại", "the loai"], field: "interest" },
+      { keywords: ["mức độ", "muc do", "level", "đánh giá", "danh gia"], field: "level" }
     ];
     
-    var sessionIdCol = 6;  // Cột F = Session ID
-    var lastRow = sheet.getLastRow();
+    // Tìm cột cho từng field dựa trên header text
+    var colMap = {};
+    
+    for (var h = 0; h < headers.length; h++) {
+      var headerText = String(headers[h]).toLowerCase().trim();
+      if (!headerText) continue;
+      
+      for (var m = 0; m < headerToField.length; m++) {
+        var mapping = headerToField[m];
+        for (var k = 0; k < mapping.keywords.length; k++) {
+          if (headerText.indexOf(mapping.keywords[k]) !== -1) {
+            colMap[mapping.field] = h;
+            break;
+          }
+        }
+      }
+    }
+    
+    // ============================================================
+    // TẠO DÒNG DỮ LIỆU THEO ĐÚNG THỨ TỰ CỘT CỦA SHEET
+    // ============================================================
+    var numCols = headers.length;
+    var rowData = [];
+    
+    for (var c = 0; c < numCols; c++) {
+      var value = "";
+      for (var fieldName in colMap) {
+        if (colMap[fieldName] === c) {
+          value = fieldMapping[fieldName] || "";
+          break;
+        }
+      }
+      rowData.push(value);
+    }
+    
+    // ============================================================
+    // TÌM SESSION ID ĐỂ UPDATE HOẶC TẠO DÒNG MỚI
+    // ============================================================
+    var sessionCol = (colMap["sessionId"] !== undefined) ? colMap["sessionId"] + 1 : -1;
     var isUpdated = false;
     
-    // Tìm hàng có cùng Session ID để UPDATE (cập nhật chat mới nhất)
-    // BẮT ĐẦU TỪ ROW 2 để bỏ qua header row
-    if (lastRow > 1 && data.sessionId && data.sessionId.length > 0) {
-      var sessionValues = sheet.getRange(2, sessionIdCol, lastRow - 1, 1).getValues();
+    if (lastRow > 1 && sessionCol > 0 && data.sessionId && data.sessionId.length > 0) {
+      var sessionValues = sheet.getRange(2, sessionCol, lastRow - 1, 1).getValues();
       for (var i = 0; i < sessionValues.length; i++) {
         if (String(sessionValues[i][0]) === String(data.sessionId)) {
-          // Tìm thấy → cập nhật dòng này (i+2 vì bắt đầu từ row 2)
           sheet.getRange(i + 2, 1, 1, rowData.length).setValues([rowData]);
           isUpdated = true;
           break;
@@ -43,12 +96,13 @@ function doPost(e) {
       }
     }
     
-    // Không tìm thấy → TẠO DÒNG MỚI
     if (!isUpdated) {
       sheet.appendRow(rowData);
     }
     
+    // ============================================================
     // GỬI EMAIL CẢNH BÁO KHÁCH HOT
+    // ============================================================
     if (data.triggerAlert === "true") {
       try {
         var salesEmail = "btkt.thoa@gmail.com";
@@ -74,7 +128,11 @@ function doPost(e) {
       }
     }
     
-    return ContentService.createTextOutput(JSON.stringify({"status": "success"}))
+    Logger.log("Received data: " + JSON.stringify(data));
+    Logger.log("Column mapping: " + JSON.stringify(colMap));
+    Logger.log("Row data: " + JSON.stringify(rowData));
+    
+    return ContentService.createTextOutput(JSON.stringify({"status": "success", "mapping": colMap}))
                          .setMimeType(ContentService.MimeType.JSON);
                          
   } catch (error) {
@@ -85,5 +143,5 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput("Webhook online. Version 5.");
+  return ContentService.createTextOutput("Webhook online. Version 6 - Dynamic column mapping.");
 }
