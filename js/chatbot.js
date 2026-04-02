@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Failsafe: If any cached HTML still has the lead modal, completely obliterate it from the DOM.
+    // FAILSAFE: Nếu trình duyệt cache HTML cũ vẫn còn modal, xóa nó khỏi DOM
     const phantomModal = document.getElementById('leadModal');
     if (phantomModal) phantomModal.remove();
 
@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.value = '';
         messageCount++;
 
-        // Simulate AI Processing & Response
         analyzeUserInput(msg);
         showTypingIndicator();
         
@@ -49,45 +48,45 @@ document.addEventListener('DOMContentLoaded', () => {
             appendMessage(aiReply, 'ai-message');
             chatHistory.push({ role: 'AI', message: aiReply, time: new Date().toISOString() });
             
-            // Send data to Google Sheets
-            sendDataToWebhook();
+            // Gửi dữ liệu về Google Sheets sau mỗi lượt chat
+            sendDataViaForm();
             
         }, 1500);
     });
 
     function appendMessage(msg, className) {
-        const div = document.createElement('div');
-        div.className = `message ${className}`;
-        div.innerHTML = `<div class="message-content">${msg}</div>`;
+        var div = document.createElement('div');
+        div.className = 'message ' + className;
+        div.innerHTML = '<div class="message-content">' + msg + '</div>';
         chatBody.appendChild(div);
         chatBody.scrollTop = chatBody.scrollHeight;
     }
 
     function showTypingIndicator() {
-        const div = document.createElement('div');
-        div.className = `message ai-message typing-indicator`;
+        var div = document.createElement('div');
+        div.className = 'message ai-message typing-indicator';
         div.id = 'typingIndicator';
-        div.innerHTML = `<div class="message-content">...</div>`;
+        div.innerHTML = '<div class="message-content">...</div>';
         chatBody.appendChild(div);
         chatBody.scrollTop = chatBody.scrollHeight;
     }
 
     function removeTypingIndicator() {
-        const el = document.getElementById('typingIndicator');
+        var el = document.getElementById('typingIndicator');
         if(el) el.remove();
     }
 
     function analyzeUserInput(msg) {
-        let text = msg.toLowerCase();
+        var text = msg.toLowerCase();
         
-        if(text.includes('biệt thự') || text.includes('villa')) userInterest = "Biệt thự";
-        else if(text.includes('shophouse') || text.includes('kinh doanh')) userInterest = "Shophouse";
-        else if(text.includes('căn hộ') || text.includes('chung cư')) userInterest = "Căn hộ";
+        if(text.indexOf('biệt thự') !== -1 || text.indexOf('villa') !== -1) userInterest = "Biệt thự";
+        else if(text.indexOf('shophouse') !== -1 || text.indexOf('kinh doanh') !== -1) userInterest = "Shophouse";
+        else if(text.indexOf('căn hộ') !== -1 || text.indexOf('chung cư') !== -1) userInterest = "Căn hộ";
         
-        if(text.includes('giá') || text.includes('bảng giá') || text.includes('thanh toán')) {
+        if(text.indexOf('giá') !== -1 || text.indexOf('bảng giá') !== -1 || text.indexOf('thanh toán') !== -1) {
             currentLevel = currentLevel === "cold" ? "warm" : "hot";
         }
-        if(text.includes('mua') || text.includes('xem nhà') || text.includes('chiết khấu') || text.includes('tư vấn')) {
+        if(text.indexOf('mua') !== -1 || text.indexOf('xem nhà') !== -1 || text.indexOf('chiết khấu') !== -1 || text.indexOf('tư vấn') !== -1) {
             currentLevel = "hot";
         }
         
@@ -97,59 +96,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateAIResponse(msg) {
-        let text = msg.toLowerCase();
-        if(text.includes('giá') || text.includes('bảng giá')) {
-            return "Hiện tại dự án Vinhomes Green Paradise Cần Giờ đang có chính sách giá rất ưu đãi cho đợt mở bán đầu tiên. Để nhận bảng giá chi tiết từng dòng diện tích, anh/chị có thể để lại số SĐT hoặc Email để em hỗ trợ cung cấp ngay nhé.";
+        var text = msg.toLowerCase();
+        if(text.indexOf('giá') !== -1 || text.indexOf('bảng giá') !== -1) {
+            return "Hiện tại dự án Vinhomes Green Paradise Cần Giờ đang có chính sách giá rất ưu đãi cho đợt mở bán đầu tiên. Để nhận bảng giá chi tiết, anh/chị có thể để lại SĐT hoặc Email để em hỗ trợ ngay nhé.";
         }
-        if(text.includes('vị trí') || text.includes('ở đâu')) {
-            return "Dự án nằm tại vị trí kim cương huyện Cần Giờ, 1 mặt giáp rừng ngập mặn, 1 mặt giáp biển. Tương lai kết nối qua cầu Cần Giờ sẽ rất thuận tiện. Anh/chị cần em cung cấp sơ đồ vị trí chi tiết không?";
+        if(text.indexOf('vị trí') !== -1 || text.indexOf('ở đâu') !== -1) {
+            return "Dự án nằm tại vị trí kim cương huyện Cần Giờ, 1 mặt giáp rừng ngập mặn, 1 mặt giáp biển. Tương lai kết nối qua cầu Cần Giờ sẽ rất thuận tiện. Anh/chị cần xem bản đồ chi tiết không?";
         }
-        if(text.includes('shophouse')) {
-            return "Shophouse tại đây có quy mô phục vụ lượng lớn khách du lịch, thiết kế mặt tiền rộng, rất phù hợp kinh doanh nhà hàng, cafe hoặc thời trang. Anh/chị đang muốn kinh doanh mô hình nào ạ?";
+        if(text.indexOf('shophouse') !== -1) {
+            return "Shophouse tại đây phục vụ lượng lớn khách du lịch, mặt tiền rộng, phù hợp kinh doanh nhà hàng, cafe hoặc thời trang. Anh/chị muốn kinh doanh mô hình nào ạ?";
         }
-        if(text.includes('biệt thự')) {
-            return "Dòng biệt thự biển là tinh hoa của dự án với thiết kế lấn biển độc bản và số lượng rất giới hạn. Anh/chị đang tìm biệt thự nghỉ dưỡng cho gia đình hay để đầu tư ạ?";
+        if(text.indexOf('biệt thự') !== -1) {
+            return "Dòng biệt thự biển là tinh hoa của dự án với thiết kế lấn biển độc bản và số lượng rất giới hạn. Anh/chị tìm biệt thự cho gia đình hay để đầu tư ạ?";
         }
-        return "Dạ vâng, hệ sinh thái tiện ích của dự án vô cùng đa dạng với tổ hợp giải trí đêm, cụm hồ bơi vô cực, bến du thuyền... Anh/chị có điều gì vướng mắc cần em hỗ trợ giải đáp cứ nhắn nhé!";
+        return "Dạ vâng, tiện ích dự án vô cùng đa dạng với tổ hợp giải trí đêm, cụm hồ bơi vô cực, bến du thuyền... Anh/chị có vướng mắc gì cần em hỗ trợ cứ nhắn nhé!";
     }
 
-    function sendDataToWebhook() {
-        const sessionIdInput = document.getElementById('sessionId');
-        const sessionId = sessionIdInput ? sessionIdInput.value : "Guest_" + Math.floor(Math.random()*10000);
-        const isHot = (currentLevel === 'hot');
+    // GỬi DỮ LIỆU QUA FORM + IFRAME ẨN
+    // Cách này KHÔNG bị CORS chặn vì form submission không bị CORS policy ảnh hưởng
+    function sendDataViaForm() {
+        var sessionIdInput = document.getElementById('sessionId');
+        var sessionId = sessionIdInput ? sessionIdInput.value : "Guest_" + Math.floor(Math.random()*10000);
+        var isHot = (currentLevel === 'hot');
         
-        // Setup local storage flag to only trigger hot email ONCE
-        let triggerAlert = "false";
+        var triggerAlert = "false";
         if (isHot && !localStorage.getItem('vhgp_hot_alert_sent')) {
             triggerAlert = "true";
             localStorage.setItem('vhgp_hot_alert_sent', 'true');
         }
 
-        // Dùng URL Search Params là cách chuẩn xác nhất để đẩy Web Apps Script với no-cors
-        const params = new URLSearchParams({
+        // Tạo form ẩn, target vào iframe ẩn, submit POST
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = WEBHOOK_URL;
+        form.target = 'webhookFrame';
+        form.style.display = 'none';
+
+        var fields = {
             timestamp: new Date().toLocaleString("vi-VN"),
-            name: "Ẩn danh (Qua Chatbot)",
-            phone: "Trống",
-            email: "Trống",
+            name: "Ẩn danh (Chatbot)",
+            phone: "",
+            email: "",
             source: window.location.href,
             sessionId: sessionId,
-            chatHistory: JSON.stringify(chatHistory, null, 2),
+            chatHistory: JSON.stringify(chatHistory),
             interest: userInterest,
             level: currentLevel,
-            triggerAlert: triggerAlert 
-        });
+            triggerAlert: triggerAlert
+        };
 
-        if(WEBHOOK_URL) {
-            fetch(WEBHOOK_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: params.toString()
-            }).then(() => {
-                console.log("Chat history perfectly synced to Google Sheet.");
-            }).catch(err => console.error("Webhook network error:", err));
+        for (var key in fields) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = fields[key];
+            form.appendChild(input);
         }
+
+        document.body.appendChild(form);
+        form.submit();
+        
+        // Xóa form sau khi submit
+        setTimeout(function() {
+            document.body.removeChild(form);
+        }, 2000);
+        
+        console.log("Data sent to Google Sheets via form POST.");
     }
 });
