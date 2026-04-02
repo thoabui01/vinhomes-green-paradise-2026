@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Failsafe: If any cached HTML still has the lead modal, completely obliterate it from the DOM.
+    const phantomModal = document.getElementById('leadModal');
+    if (phantomModal) phantomModal.remove();
+
     const chatToggler = document.getElementById('chatToggler');
     const chatWindow = document.getElementById('chatWindow');
     const closeChat = document.getElementById('closeChat');
@@ -45,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appendMessage(aiReply, 'ai-message');
             chatHistory.push({ role: 'AI', message: aiReply, time: new Date().toISOString() });
             
-            // Send data to Google Sheets after each response so it captures the ongoing chat
+            // Send data to Google Sheets
             sendDataToWebhook();
             
         }, 1500);
@@ -73,16 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if(el) el.remove();
     }
 
-    // Advanced but simulated keyword-based AI intent analysis
     function analyzeUserInput(msg) {
         let text = msg.toLowerCase();
         
-        // Analyze Interest
         if(text.includes('biệt thự') || text.includes('villa')) userInterest = "Biệt thự";
         else if(text.includes('shophouse') || text.includes('kinh doanh')) userInterest = "Shophouse";
         else if(text.includes('căn hộ') || text.includes('chung cư')) userInterest = "Căn hộ";
         
-        // Analyze Readiness (Cold -> Warm -> Hot)
         if(text.includes('giá') || text.includes('bảng giá') || text.includes('thanh toán')) {
             currentLevel = currentLevel === "cold" ? "warm" : "hot";
         }
@@ -98,56 +99,57 @@ document.addEventListener('DOMContentLoaded', () => {
     function generateAIResponse(msg) {
         let text = msg.toLowerCase();
         if(text.includes('giá') || text.includes('bảng giá')) {
-            return "Hiện tại dự án Vinhomes Green Paradise Cần Giờ đang có chính sách giá rất ưu đãi cho đợt mở bán đầu tiên. Để nhận bảng giá chi tiết từng dòng diện tích, anh/chị có thể để lại số SĐT để em tư vấn thêm nhé.";
+            return "Hiện tại dự án Vinhomes Green Paradise Cần Giờ đang có chính sách giá rất ưu đãi cho đợt mở bán đầu tiên. Để nhận bảng giá chi tiết từng dòng diện tích, anh/chị có thể để lại số SĐT hoặc Email để em hỗ trợ cung cấp ngay nhé.";
         }
         if(text.includes('vị trí') || text.includes('ở đâu')) {
-            return "Dự án nằm tại vị trí kim cương huyện Cần Giờ, 1 mặt giáp rừng ngập mặn, 1 mặt giáp biển. Tương lai kết nối qua cầu Cần Giờ sẽ rất nhanh chóng. Anh/chị cần xem bản đồ chi tiết không?";
+            return "Dự án nằm tại vị trí kim cương huyện Cần Giờ, 1 mặt giáp rừng ngập mặn, 1 mặt giáp biển. Tương lai kết nối qua cầu Cần Giờ sẽ rất thuận tiện. Anh/chị cần em cung cấp sơ đồ vị trí chi tiết không?";
         }
         if(text.includes('shophouse')) {
-            return "Shophouse tại đây có quy mô phục vụ lượng lớn khách du lịch, thiết kế mặt tiền rộng, rất phù hợp kinh doanh nhà hàng, cafe hoặc thời trang. Anh/chị đang muốn kinh doanh mảng nào ạ?";
+            return "Shophouse tại đây có quy mô phục vụ lượng lớn khách du lịch, thiết kế mặt tiền rộng, rất phù hợp kinh doanh nhà hàng, cafe hoặc thời trang. Anh/chị đang muốn kinh doanh mô hình nào ạ?";
         }
         if(text.includes('biệt thự')) {
-            return "Dòng biệt thự biển là tinh hoa của dự án với thiết kế lấn biển độc bản và số lượng rất giới hạn. Anh/chị tìm biệt thự đơn lập hay song lập ạ?";
+            return "Dòng biệt thự biển là tinh hoa của dự án với thiết kế lấn biển độc bản và số lượng rất giới hạn. Anh/chị đang tìm biệt thự nghỉ dưỡng cho gia đình hay để đầu tư ạ?";
         }
-        return "Dạ vâng, tiện ích của dự án vô cùng đa dạng với tổ hợp giải trí đêm, cụm hồ bơi vô cực, bến du thuyền... Anh/chị có vướng mắc gì cần em hỗ trợ giải đáp không?";
+        return "Dạ vâng, hệ sinh thái tiện ích của dự án vô cùng đa dạng với tổ hợp giải trí đêm, cụm hồ bơi vô cực, bến du thuyền... Anh/chị có điều gì vướng mắc cần em hỗ trợ giải đáp cứ nhắn nhé!";
     }
 
     function sendDataToWebhook() {
-        const sessionId = document.getElementById('sessionId').value;
+        const sessionIdInput = document.getElementById('sessionId');
+        const sessionId = sessionIdInput ? sessionIdInput.value : "Guest_" + Math.floor(Math.random()*10000);
         const isHot = (currentLevel === 'hot');
         
         // Setup local storage flag to only trigger hot email ONCE
-        let triggerAlert = false;
+        let triggerAlert = "false";
         if (isHot && !localStorage.getItem('vhgp_hot_alert_sent')) {
-            triggerAlert = true;
+            triggerAlert = "true";
             localStorage.setItem('vhgp_hot_alert_sent', 'true');
         }
 
-        const payload = {
+        // Dùng URL Search Params là cách chuẩn xác nhất để đẩy Web Apps Script với no-cors
+        const params = new URLSearchParams({
             timestamp: new Date().toLocaleString("vi-VN"),
-            name: "Ẩn danh (Chat)",
-            phone: "",
-            email: "",
+            name: "Ẩn danh (Qua Chatbot)",
+            phone: "Trống",
+            email: "Trống",
             source: window.location.href,
             sessionId: sessionId,
             chatHistory: JSON.stringify(chatHistory, null, 2),
             interest: userInterest,
             level: currentLevel,
-            triggerAlert: triggerAlert // Send email only if this is true
-        };
+            triggerAlert: triggerAlert 
+        });
 
         if(WEBHOOK_URL) {
-            // Using text/plain prevents browser CORS preflight blocks, and mode: "no-cors" avoids strict origin issues
             fetch(WEBHOOK_URL, {
                 method: "POST",
                 mode: "no-cors",
                 headers: {
-                    "Content-Type": "text/plain;charset=utf-8"
+                    "Content-Type": "application/x-www-form-urlencoded"
                 },
-                body: JSON.stringify(payload)
+                body: params.toString()
             }).then(() => {
-                console.log("Chat sync to Webhook.");
-            }).catch(err => console.error("Error sending data:", err));
+                console.log("Chat history perfectly synced to Google Sheet.");
+            }).catch(err => console.error("Webhook network error:", err));
         }
     }
 });
