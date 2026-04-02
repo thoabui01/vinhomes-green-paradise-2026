@@ -2,14 +2,14 @@
 // Hàm xử lý HTTP POST request
 function doPost(e) {
   try {
-    // Parser payload từ frontend
+    // Parser payload từ frontend. Nếu dùng "text/plain" hoặc "no-cors", payload vào dạng chuỗi trong contents.
     var data = JSON.parse(e.postData.contents);
     
     // Mở Sheet hiện tại (Cần gán script này vào Google Sheet của bạn)
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     
     // Tạo mảng dữ liệu để chèn vào hàng mới
-    // Thứ tự cột: Thời gian, Tên, SĐT, Email, Nguồn, Session ID, Thể Loại Quan Tâm, Mức Độ, Lịch Sử Chat
+    // Thứ tự cột: (A) Thời gian, (B) Tên, (C) SĐT, (D) Email, (E) Nguồn, (F) Session ID, (G) Thể Loại Quan Tâm, (H) Mức Độ, (I) Lịch Sử Chat
     var rowData = [
       data.timestamp || new Date().toLocaleString("vi-VN"),
       data.name || "",
@@ -22,25 +22,48 @@ function doPost(e) {
       data.chatHistory || ""
     ];
     
-    // Thêm dòng mới vào Sheet
-    sheet.appendRow(rowData);
+    // Tìm Cột Session ID (Cột F là cột số 6)
+    var sessionIdIndex = 6; 
+    var lastRow = sheet.getLastRow();
+    var isUpdated = false;
+    
+    // Tìm hàng đã tồn tại dựa vào Session ID để update lịch sử chat thay vì tạo hàng mới
+    if (lastRow > 0 && data.sessionId) {
+      var sessionValues = sheet.getRange(1, sessionIdIndex, lastRow, 1).getValues();
+      for (var i = 0; i < sessionValues.length; i++) {
+        if (sessionValues[i][0] === data.sessionId) {
+          // Update the row (i + 1 is the actual row index)
+          sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+          isUpdated = true;
+          break;
+        }
+      }
+    }
+    
+    // Nếu chưa tồn tại Session ID này, tạo hàng mới
+    if (!isUpdated) {
+      sheet.appendRow(rowData);
+    }
     
     // Kiểm tra tính năng tự động cảnh báo
-    if (data.level && data.level.toLowerCase() === "hot") {
+    // Chỉ gửi cảnh báo một lần để tránh spam do cập nhật nhiều lần
+    if (data.triggerAlert === true) {
       var salesEmail = "btkt.thoa@gmail.com";
       var subject = "📢 KHÁCH HÀNG NÓNG - CẦN LIÊN HỆ NGAY!";
-      var body = "Tên: " + data.name + "\n" +
-                 "SĐT: " + data.phone + "\n" +
-                 "Email: " + (data.email || "Không có") + "\n" +
+      var body = "Khách hàng đã phát sinh nhu cầu CAO qua Chatbot.\n\n" +
+                 "Tên: " + (data.name || "Ẩn danh") + "\n" +
+                 "SĐT: " + (data.phone || "Không rõ") + "\n" +
+                 "Email: " + (data.email || "Không rõ") + "\n" +
                  "Quan tâm: " + data.interest + "\n" +
                  "Thời gian: " + data.timestamp + "\n\n" +
-                 "Vui lòng liên hệ khách hàng này trong vòng 30 phút!";
+                 "Lịch sử Chat:\n" + data.chatHistory + "\n\n" +
+                 "Vui lòng liên hệ và chuẩn bị kịch bản tư vấn!";
                  
       MailApp.sendEmail(salesEmail, subject, body);
     }
     
     // Trả về JSON thông báo thành công
-    return ContentService.createTextOutput(JSON.stringify({"status": "success", "message": "Data logged successfully"}))
+    return ContentService.createTextOutput(JSON.stringify({"status": "success"}))
                          .setMimeType(ContentService.MimeType.JSON);
                          
   } catch (error) {

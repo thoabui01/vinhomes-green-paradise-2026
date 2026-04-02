@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatForm = document.getElementById('chatForm');
     const chatInput = document.getElementById('chatInput');
     
-    // Webhook URL (User should replace this with their Google Apps Script Webhook URL)
+    // Webhook URL
     const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzmfythugMx4lfU4SbWxeDhX4lAisr6vGh5WjCSOdGanrtKF5U5IGhbFrbaKiby_flq/exec';
     
     let chatHistory = [];
@@ -45,12 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
             appendMessage(aiReply, 'ai-message');
             chatHistory.push({ role: 'AI', message: aiReply, time: new Date().toISOString() });
             
-            // If interest gets 'hot', show lead modal to capture info
-            if(currentLevel === 'hot' && !localStorage.getItem('vhgp_leadSent')) {
-                setTimeout(() => {
-                    document.getElementById('leadModal').classList.remove('d-none');
-                }, 2000);
-            }
+            // Send data to Google Sheets after each response so it captures the ongoing chat
+            sendDataToWebhook();
+            
         }, 1500);
     });
 
@@ -101,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function generateAIResponse(msg) {
         let text = msg.toLowerCase();
         if(text.includes('giá') || text.includes('bảng giá')) {
-            return "Hiện tại dự án Vinhomes Green Paradise Cần Giờ đang có chính sách giá rất ưu đãi cho đợt mở bán đầu tiên. Để nhận bảng giá chi tiết từng dòng diện tích, anh/chị có thể để lại số Zalo để em gửi ngay ạ.";
+            return "Hiện tại dự án Vinhomes Green Paradise Cần Giờ đang có chính sách giá rất ưu đãi cho đợt mở bán đầu tiên. Để nhận bảng giá chi tiết từng dòng diện tích, anh/chị có thể để lại số SĐT để em tư vấn thêm nhé.";
         }
         if(text.includes('vị trí') || text.includes('ở đâu')) {
             return "Dự án nằm tại vị trí kim cương huyện Cần Giờ, 1 mặt giáp rừng ngập mặn, 1 mặt giáp biển. Tương lai kết nối qua cầu Cần Giờ sẽ rất nhanh chóng. Anh/chị cần xem bản đồ chi tiết không?";
@@ -112,59 +109,45 @@ document.addEventListener('DOMContentLoaded', () => {
         if(text.includes('biệt thự')) {
             return "Dòng biệt thự biển là tinh hoa của dự án với thiết kế lấn biển độc bản và số lượng rất giới hạn. Anh/chị tìm biệt thự đơn lập hay song lập ạ?";
         }
-        return "Dạ vâng, tiện ích của dự án vô cùng đa dạng với tổ hợp giải trí đêm, cụm hồ bơi vô cực, bến du thuyền... Anh/chị có muốn tham quan trực tiếp dự án để cảm nhận rõ hơn không?";
+        return "Dạ vâng, tiện ích của dự án vô cùng đa dạng với tổ hợp giải trí đêm, cụm hồ bơi vô cực, bến du thuyền... Anh/chị có vướng mắc gì cần em hỗ trợ giải đáp không?";
     }
 
-    // Handle Lead Form
-    const leadForm = document.getElementById('leadForm');
-    const skipLead = document.getElementById('skipLead');
-    const leadModal = document.getElementById('leadModal');
-
-    skipLead.addEventListener('click', () => {
-        leadModal.classList.add('d-none');
-    });
-
-    leadForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        const name = document.getElementById('leadName').value;
-        const phone = document.getElementById('leadPhone').value;
-        const email = document.getElementById('leadEmail').value || "";
+    function sendDataToWebhook() {
         const sessionId = document.getElementById('sessionId').value;
+        const isHot = (currentLevel === 'hot');
         
+        // Setup local storage flag to only trigger hot email ONCE
+        let triggerAlert = false;
+        if (isHot && !localStorage.getItem('vhgp_hot_alert_sent')) {
+            triggerAlert = true;
+            localStorage.setItem('vhgp_hot_alert_sent', 'true');
+        }
+
         const payload = {
             timestamp: new Date().toLocaleString("vi-VN"),
-            name: name,
-            phone: phone,
-            email: email,
+            name: "Ẩn danh (Chat)",
+            phone: "",
+            email: "",
             source: window.location.href,
             sessionId: sessionId,
-            chatHistory: JSON.stringify(chatHistory),
+            chatHistory: JSON.stringify(chatHistory, null, 2),
             interest: userInterest,
-            level: currentLevel
+            level: currentLevel,
+            triggerAlert: triggerAlert // Send email only if this is true
         };
 
-        // Send to Google Sheets Webhook
-        if(WEBHOOK_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_WEBHOOK_URL_HERE') {
+        if(WEBHOOK_URL) {
+            // Using text/plain prevents browser CORS preflight blocks, and mode: "no-cors" avoids strict origin issues
             fetch(WEBHOOK_URL, {
                 method: "POST",
                 mode: "no-cors",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "text/plain;charset=utf-8"
                 },
                 body: JSON.stringify(payload)
             }).then(() => {
-                console.log("Data sent to Google Sheets");
+                console.log("Chat sync to Webhook.");
             }).catch(err => console.error("Error sending data:", err));
-        } else {
-            console.warn("WEBHOOK_URL is not set. Data logged to console: ", payload);
         }
-
-        localStorage.setItem('vhgp_leadSent', 'true');
-        leadModal.classList.add('d-none');
-        appendMessage("Cảm ơn anh/chị. Chuyên viên sẽ liên hệ lại ngay để hỗ trợ anh/chị tốt nhất!", "ai-message");
-        
-        // Prevent further prompts
-        currentLevel = "done"; 
-    });
+    }
 });
