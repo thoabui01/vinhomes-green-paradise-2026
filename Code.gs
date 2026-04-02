@@ -12,7 +12,7 @@ function doPost(e) {
     
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     
-    // Dữ liệu theo đúng thứ tự cột: A-I
+    // Dữ liệu theo đúng thứ tự cột: A-I (khớp header Google Sheets)
     var rowData = [
       data.timestamp || new Date().toLocaleString("vi-VN"),  // A: Thời gian
       data.name || "",                                        // B: Tên
@@ -20,9 +20,9 @@ function doPost(e) {
       data.email || "",                                       // D: Email
       data.source || "CHATBOT",                               // E: Nguồn
       data.sessionId || "",                                    // F: Session ID
-      data.interest || "",                                     // G: Quan tâm
-      data.level || "",                                        // H: Mức độ
-      data.chatHistory || ""                                   // I: Lịch sử Chat
+      data.chatHistory || "",                                  // G: Lịch sử Chat
+      data.interest || "",                                     // H: Quan tâm
+      data.level || ""                                         // I: Mức độ
     ];
     
     var sessionIdCol = 6;  // Cột F = Session ID
@@ -85,5 +85,5 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput("Webhook online. Version 4.");
+  return ContentService.createTextOutput("Webhook online. Version 5.");
 }
